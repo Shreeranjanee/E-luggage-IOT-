@@ -1,0 +1,490 @@
+///weight with only display working code:
+#include <HX711.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+// LCD config
+LiquidCrystal_I2C lcd(0x27, 16, 2);  // Address, Columns, Rows
+
+// HX711 config
+#define DT 2
+#define SCK 3
+HX711 scale;
+
+float calibration_factor = -7080.0; // Adjust this based on your load cell
+float previousWeight = 0.0;         // Store previous weight to minimize unnecessary updates
+
+void setup() {
+  Serial.begin(9600);
+  scale.begin(DT, SCK);
+  scale.set_scale(calibration_factor);
+  scale.tare();  // Reset scale to 0
+
+  // LCD init
+  lcd.init();
+  lcd.backlight();
+  lcd.setCursor(0, 0);
+  lcd.print("Weight Scale");
+  delay(2000);
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Weight:");
+}
+
+void loop() {
+  float weight = scale.get_units(5);  // Average over 5 readings
+
+  // Display on Serial Monitor
+  Serial.print("Weight: ");
+  Serial.print(weight, 1);
+  Serial.println(" g");
+
+  // Only update LCD if weight has changed to prevent flickering
+  if (abs(weight - previousWeight) > 0.1) { 
+    lcd.setCursor(0, 1);
+    lcd.print("       ");  // Clear previous weight value
+    lcd.setCursor(0, 1);
+    lcd.print(weight, 1);
+    lcd.print(" g");
+    previousWeight = weight; // Store new weight
+  }
+
+  delay(500);
+}
+ 
+---------------------------------------//or:
+
+#include <HX711.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+// LCD config
+LiquidCrystal_I2C lcd(0x27, 16, 2);  // Address, Columns, Rows
+
+// HX711 config
+#define DT 2
+#define SCK 3
+HX711 scale;
+
+float calibration_factor = -7050.0; // Adjust this based on your load cell
+float previousWeight = 0.0;         // Store previous weight to minimize unnecessary updates
+
+void setup() {
+  Serial.begin(9600);
+  scale.begin(DT, SCK);
+  scale.set_scale(calibration_factor);
+  scale.tare();  // Reset scale to 0
+
+  // LCD init
+  lcd.init();
+  lcd.backlight();
+  lcd.setCursor(0, 0);
+  lcd.print("Weight Scale");
+  delay(2000);
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Weight:");
+}
+
+void loop() {
+  float weight = scale.get_units(5);  // Average over 5 readings
+
+  // Display on Serial Monitor
+  Serial.print("Weight: ");
+  Serial.print(weight, 1);
+  Serial.println(" g");
+
+  // Only update LCD if weight has changed to prevent flickering
+  if (abs(weight - previousWeight) > 0.1) { 
+    lcd.setCursor(0, 1);
+    lcd.print("       ");  // Clear previous weight value
+    lcd.setCursor(0, 1);
+    lcd.print(weight, 1);
+    lcd.print(" g");
+    previousWeight = weight; // Store new weight
+  }
+
+  delay(500);
+}
+  
+------------------------------------------------------//weight with display and buzzer:
+
+#include <HX711.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+// HX711 Pins
+#define DT 2
+#define SCK 3
+
+// Buzzer Pin
+#define BUZZER_PIN 4
+
+// LCD config
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+// HX711 setup
+HX711 scale;
+float calibration_factor = -7050.0; // Adjust based on your setup
+float referenceWeight = 0.0;
+float tolerance = 5.0; // grams — adjust for sensitivity
+bool referenceCaptured = false;
+
+void setup() {
+  Serial.begin(9600);
+
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW); // Buzzer off initially
+
+  scale.begin(DT, SCK);
+  scale.set_scale(calibration_factor);
+  scale.tare();
+
+  lcd.init();
+  lcd.backlight();
+  lcd.setCursor(0, 0);
+  lcd.print("Weight Scale");
+  delay(2000);
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Place Weight...");
+}
+
+void loop() {
+  float currentWeight = scale.get_units(5); // average of 5 readings
+
+  // Set the reference weight once
+  if (!referenceCaptured && currentWeight > 10) {
+    referenceWeight = currentWeight;
+    referenceCaptured = true;
+
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Ref Weight Set");
+    lcd.setCursor(0, 1);
+    lcd.print(referenceWeight, 1);
+    lcd.print(" g");
+    delay(2000);
+    lcd.clear();
+  }
+
+  // Display current weight
+  lcd.setCursor(0, 0);
+  lcd.print("Weight:");
+  lcd.setCursor(0, 1);
+  lcd.print("                "); // Clear line
+  lcd.setCursor(0, 1);
+  lcd.print(currentWeight, 1);
+  lcd.print(" g");
+
+  // Print to Serial
+  Serial.print("Current: ");
+  Serial.print(currentWeight);
+  Serial.print(" g, Ref: ");
+  Serial.println(referenceWeight);
+
+  // Compare with reference weight and buzz if changed
+  if (referenceCaptured && abs(currentWeight - referenceWeight) > tolerance) {
+    digitalWrite(BUZZER_PIN, HIGH); // Turn on buzzer
+  } else {
+    digitalWrite(BUZZER_PIN, LOW); // Turn off buzzer
+  }
+
+  delay(500);
+}
+------------------------------------------------------
+//weight with led and display:
+
+### *Wiring Summary:*
+
+| Component      | Connect to Arduino |
+|----------------|--------------------|
+| HX711 DT       | D2                 |
+| HX711 SCK      | D3                 |
+| RED LED (+)    | D6 (with 220Ω resistor) |
+| RED LED (–)    | GND                |
+| HX711 VCC      | 5V                 |
+| HX711 GND      | GND                |
+| LCD SDA        | A4                 |
+| LCD SCL        | A5                 |
+
+#include <HX711.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+// Pins
+#define DT 2
+#define SCK 3
+#define RED_LED 6
+
+// LCD & HX711 setup
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+HX711 scale;
+
+float calibration_factor = -7050.0; // Adjust based on your load cell
+
+void setup() {
+  Serial.begin(9600);
+  
+  pinMode(RED_LED, OUTPUT);
+  digitalWrite(RED_LED, LOW);
+
+  // Initialize LCD
+  lcd.init();
+  lcd.backlight();
+  lcd.setCursor(0, 0);
+  lcd.print("Initializing...");
+  delay(1000);
+  lcd.clear();
+
+  // Initialize HX711
+  scale.begin(DT, SCK);
+  scale.set_scale(calibration_factor);
+  scale.tare(); // Reset scale to 0
+}
+
+void loop() {
+  float weight = scale.get_units(5); // Take average of 5 readings
+
+  // Display on LCD
+  lcd.setCursor(0, 0);
+  lcd.print("Weight:");
+  lcd.setCursor(0, 1);
+  lcd.print("                "); // Clear line
+  lcd.setCursor(0, 1);
+  lcd.print(weight, 1);
+  lcd.print(" g");
+
+  // Print to Serial
+  Serial.print("Weight: ");
+  Serial.print(weight);
+  Serial.println(" g");
+
+  // Out-of-range check
+  if (weight < 0.0 || weight > 5000.0) {
+    digitalWrite(RED_LED, HIGH); // Alert!
+  } else {
+    digitalWrite(RED_LED, LOW);  // Normal
+  }
+
+  delay(500);
+}
+
+
+------------------------------------------------------
+//rfid with display and buzzer:
+
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <SPI.h>
+#include <MFRC522.h>
+
+// RFID Module Pins
+#define SS_PIN 10   // SDA pin (SDA)
+#define RST_PIN 9   // Reset pin (RST)
+MFRC522 mfrc522(SS_PIN, RST_PIN); // RFID instance
+
+// LCD Setup
+LiquidCrystal_I2C lcd(0x27, 16, 2); // LCD address 0x27, 16 columns, 2 rows
+
+// ✅ Authorized RFID Card UID
+byte authorizedUID[] = {0x2B, 0x62, 0xC0, 0x01};  // "2B 62 C0 01"
+const int uidLength = 4; // Length of the UID (4 bytes)
+
+// Buzzer Pin
+#define BUZZER_PIN 7  
+
+void setup() {
+  Serial.begin(9600);
+  lcd.init();
+  lcd.backlight();
+
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW); // Ensure buzzer is OFF at start
+
+  SPI.begin();       // Initialize SPI
+  mfrc522.PCD_Init(); // Initialize RFID module
+
+  lcd.setCursor(0, 0);
+  lcd.print(" RFID Access Sys ");
+  lcd.setCursor(0, 1);
+  lcd.print("Scan RFID Card");
+}
+
+void loop() {
+  // Check if an RFID card is present
+  if (!mfrc522.PICC_IsNewCardPresent() || !mfrc522.PICC_ReadCardSerial()) {
+    return;
+  }
+
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Card UID:");
+
+  Serial.print("Card UID: ");
+
+  // Read UID and display it
+  bool isAuthorized = true;
+  for (byte i = 0; i < uidLength; i++) {
+    Serial.print(mfrc522.uid.uidByte[i], HEX);
+    Serial.print(" ");
+
+    lcd.setCursor(i * 3, 1);
+    lcd.print(mfrc522.uid.uidByte[i], HEX);
+    lcd.print(" ");
+
+    // Compare scanned UID with the authorized UID
+    if (mfrc522.uid.uidByte[i] != authorizedUID[i]) {
+      isAuthorized = false;  // If any byte does not match, deny access
+    }
+  }
+  Serial.println();
+
+  delay(1000);
+  lcd.clear();
+  lcd.setCursor(0, 0);
+
+  if (isAuthorized) {
+    Serial.println("Access Granted!");
+    lcd.print(" Access Granted");
+    digitalWrite(BUZZER_PIN, LOW);  // Turn OFF buzzer
+  } else {
+    Serial.println(" Access Denied!");
+    lcd.print(" Access Denied");
+    digitalWrite(BUZZER_PIN, HIGH); // Turn ON buzzer
+    delay(2000);  // Keep buzzer ON for 2 seconds
+    digitalWrite(BUZZER_PIN, LOW);  // Turn OFF buzzer
+  }
+
+  delay(3000); // Show result for 3 seconds
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Scan RFID Card");
+  mfrc522.PICC_HaltA(); // Stop reading
+}
+--------------------------------------------------
+
+//gpt Bluetooth code
+#include <SoftwareSerial.h>
+#include <TinyGPS++.h>
+
+// GPS module on pins 4 (RX), 3 (TX)
+SoftwareSerial gpsSerial(4, 3);
+
+// Bluetooth module on pins 8 (RX), 9 (TX)
+SoftwareSerial btSerial(8, 9);
+
+TinyGPSPlus gps;
+
+void setup() {
+  Serial.begin(9600);       
+  gpsSerial.begin(9600);    
+  btSerial.begin(9600);     
+
+  Serial.println("System Initialized");
+}
+
+void loop() {
+  while (gpsSerial.available() > 0) {
+    gps.encode(gpsSerial.read());
+
+    if (gps.location.isUpdated()) {
+      float lat = gps.location.lat();
+      float lng = gps.location.lng();
+
+      // Send to phone via Bluetooth
+      btSerial.print("Latitude: ");
+      btSerial.println(lat, 6);
+      btSerial.print("Longitude: ");
+      btSerial.println(lng, 6);
+
+      // Also print on serial monitor
+      Serial.print("Latitude: ");
+      Serial.println(lat, 6);
+      Serial.print("Longitude: ");
+      Serial.println(lng, 6);
+    }
+  }
+}
+----------------------------------------------------
+//friend Bluetooth with gps code:
+#include <SoftwareSerial.h>
+#include <TinyGPS++.h>
+
+// SoftwareSerial for GPS (D4=RX, D3=TX)
+SoftwareSerial gpsSerial(4, 3);
+
+// SoftwareSerial for Bluetooth (D10=RX, D11=TX)
+SoftwareSerial btSerial(10, 11);
+
+// Create GPS object
+TinyGPSPlus gps;
+
+void setup() {
+  Serial.begin(9600);           // For debugging
+  gpsSerial.begin(9600);        // GPS module
+  btSerial.begin(9600);         // Bluetooth module
+
+  Serial.println("Safety Bag Tracker Initialized");
+}
+
+void loop() {
+  while (gpsSerial.available() > 0) {
+    gps.encode(gpsSerial.read());
+
+    if (gps.location.isUpdated()) {
+      float latitude = gps.location.lat();
+      float longitude = gps.location.lng();
+
+      // Send location via Bluetooth
+      btSerial.print("Latitude: ");
+      btSerial.println(latitude, 6);
+      btSerial.print("Longitude: ");
+      btSerial.println(longitude, 6);
+
+      // Print to Serial for debugging
+      Serial.print("Latitude: ");
+      Serial.println(latitude, 6);
+      Serial.print("Longitude: ");
+      Serial.println(longitude, 6);
+
+      delay(2000); // Wait before sending next update
+    }
+  }
+}
+------------------------------------------------------
+connections for iot:
+
+1)lcd display to arduino:
+             gnd - gnd
+             vcc - 5v
+             SDA - A4
+             SCL - A5
+
+2)RFID to Arduino:
+             SDA - -10
+             SCK - 13
+             MOSI- -11
+             MISO - 12
+             GND - GND
+             RST - 9
+             3.3V - 3.3V
+
+3)Weight sensor to Arduino:
+             GND - GND(after 5v)   
+             DT - 3
+             SCK - 2
+             VCC - 5V
+
+4)GPS TO ARDUINO :
+             VIN - 5V(VIN)
+             GND - GND
+             RX - 2
+             TX - -3
+
+5)BLUET0OTH TO ARDUINO:
+            RXD - 1
+            TXD - 0
+            GND - GND
+            VCC - 5V
+
